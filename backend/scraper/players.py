@@ -2,7 +2,9 @@
 
 import time
 from nba_api.stats.endpoints import leagueleaders
-from scraper.cache import Cache
+from scraper.cache import Cache, DiskCache
+
+CURRENT_SEASON = 2025  # Update this each new season
 
 TEAM_ID_TO_NAME = {
     1610612737: "Atlanta Hawks", 1610612738: "Boston Celtics",
@@ -26,10 +28,22 @@ TEAM_ID_TO_NAME = {
 class PlayersScraper:
     def __init__(self):
         self.cache = Cache(ttl_seconds=1800)
+        self.disk = DiskCache()
+
+    def _is_past_season(self, season_end_year: int) -> bool:
+        return season_end_year < CURRENT_SEASON
 
     def get_season_totals(self, season_end_year: int = 2025) -> list[dict]:
         """Get player season per-game stats from NBA API."""
         cache_key = f"player_totals_{season_end_year}"
+
+        # Past seasons: check disk first
+        if self._is_past_season(season_end_year):
+            disk_data = self.disk.get(cache_key)
+            if disk_data:
+                return disk_data
+
+        # Current season: check in-memory TTL cache
         cached = self.cache.get(cache_key)
         if cached:
             return cached
@@ -82,6 +96,9 @@ class PlayersScraper:
                 "efficiency": efficiency,
             })
 
+        # Past seasons: persist to disk; current: TTL cache only
+        if self._is_past_season(season_end_year):
+            self.disk.set(cache_key, players)
         self.cache.set(cache_key, players)
         return players
 

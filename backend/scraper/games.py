@@ -3,7 +3,9 @@
 import time
 from datetime import datetime
 from nba_api.stats.endpoints import leaguestandings, scoreboardv2, leaguegamefinder
-from scraper.cache import Cache
+from scraper.cache import Cache, DiskCache
+
+CURRENT_SEASON = 2025  # Update this each new season
 
 TEAM_ID_TO_NAME = {
     1610612737: "Atlanta Hawks", 1610612738: "Boston Celtics",
@@ -27,10 +29,20 @@ TEAM_ID_TO_NAME = {
 class GamesScraper:
     def __init__(self):
         self.cache = Cache(ttl_seconds=1800)
+        self.disk = DiskCache()
+
+    def _is_past_season(self, season_end_year: int) -> bool:
+        return season_end_year < CURRENT_SEASON
 
     def get_team_records(self, season_end_year: int = 2025) -> dict[str, dict]:
         """Get team records from the NBA standings API."""
         cache_key = f"team_records_{season_end_year}"
+
+        if self._is_past_season(season_end_year):
+            disk_data = self.disk.get(cache_key)
+            if disk_data:
+                return disk_data
+
         cached = self.cache.get(cache_key)
         if cached:
             return cached
@@ -80,12 +92,20 @@ class GamesScraper:
                 "conf_rank": int(row.get("PlayoffRank", 0)),
             }
 
+        if self._is_past_season(season_end_year):
+            self.disk.set(cache_key, records)
         self.cache.set(cache_key, records)
         return records
 
     def get_season_games(self, season_end_year: int = 2025) -> list[dict]:
         """Get all games played this season."""
         cache_key = f"season_games_{season_end_year}"
+
+        if self._is_past_season(season_end_year):
+            disk_data = self.disk.get(cache_key)
+            if disk_data:
+                return disk_data
+
         cached = self.cache.get(cache_key)
         if cached:
             return cached
@@ -123,6 +143,8 @@ class GamesScraper:
         games = [g for g in game_map.values() if "home_team" in g and "away_team" in g]
         games.sort(key=lambda x: x["date"])
 
+        if self._is_past_season(season_end_year):
+            self.disk.set(cache_key, games)
         self.cache.set(cache_key, games)
         return games
 
