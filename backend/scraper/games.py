@@ -202,9 +202,10 @@ class GamesScraper:
         return {"team1": team1, "team2": team2, "team1_wins": t1_wins, "team2_wins": t2_wins}
 
     def get_standings(self, season_end_year: int = 2026) -> list[dict]:
-        """Get sorted standings."""
+        """Get sorted standings with per-conference seed (1-15)."""
         records = self.get_team_records(season_end_year)
         standings = sorted(records.values(), key=lambda x: x["win_pct"], reverse=True)
-        for i, team in enumerate(standings):
-            team["rank"] = i + 1
+        for team in standings:
+            # Use the NBA's own conference playoff rank as the seed
+            team["rank"] = team.get("conf_rank", 15) or 15
         return standings
