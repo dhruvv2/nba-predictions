@@ -1,25 +1,27 @@
-"""NBA MVP prediction engine using historical archetype comparison.
+"""NBA MVP prediction engine using historical archetype comparison and advanced stats.
 
 Uses the NBA 65-game rule for eligibility and weights that align with
-historical MVP voting patterns (scoring, team success, all-around play).
+historical MVP voting patterns (scoring, team success, all-around play,
+advanced efficiency metrics).
 """
 
 
 class MvpPredictor:
-    """Predicts MVP rankings using a weighted composite model.
+    """Predicts MVP rankings using a weighted composite model with advanced stats.
 
     Key insight from historical data: MVPs almost always come from
     top-3 seeds, lead in scoring/efficiency, and play most games.
-    The model weights reflect actual voter behavior patterns.
+    Advanced stats (TS%, PIE, NET_RATING) separate truly elite from volume scorers.
     """
 
     WEIGHTS = {
-        "scoring": 0.25,          # Raw PPG — voters love scorers
-        "all_around": 0.20,       # Combined PTS+REB+AST impact
-        "team_success": 0.20,     # Seed + win% — must be on a great team
-        "archetype_match": 0.15,  # Similarity to past MVP stat profiles
+        "scoring": 0.20,          # Raw PPG — voters love scorers
+        "all_around": 0.18,       # Combined PTS+REB+AST impact
+        "team_success": 0.18,     # Seed + win% — must be on a great team
+        "advanced": 0.15,         # TS%, PIE, NET_RATING — true efficiency
+        "archetype_match": 0.12,  # Similarity to past MVP stat profiles
         "availability": 0.10,     # Games played — 65-game rule era
-        "efficiency": 0.10,       # Shooting efficiency (FG%)
+        "efficiency": 0.07,       # FG% — basic shooting efficiency
     }
 
     def __init__(self, players_scraper, mvp_history_scraper):
@@ -50,6 +52,18 @@ class MvpPredictor:
             3,
         )
 
+    def _advanced_score(self, player: dict, all_players: list[dict]) -> float:
+        """Composite advanced stat score from TS%, PIE, and NET_RATING."""
+        ts_vals = [p.get("ts_pct", 50) for p in all_players]
+        pie_vals = [p.get("pie", 10) for p in all_players]
+        net_vals = [p.get("net_rating", 0) for p in all_players]
+
+        ts = self._normalize(player.get("ts_pct", 50), min(ts_vals), max(ts_vals))
+        pie = self._normalize(player.get("pie", 10), min(pie_vals), max(pie_vals))
+        net = self._normalize(player.get("net_rating", 0), min(net_vals), max(net_vals))
+
+        return 0.35 * ts + 0.40 * pie + 0.25 * net
+
     def predict_mvp_rankings(self, season_end_year: int = 2026) -> list[dict]:
         """Predict MVP rankings for the current season."""
         from scraper.games import GamesScraper
@@ -65,11 +79,7 @@ class MvpPredictor:
         if not top_players:
             return []
 
-        # Normalization ranges from candidates
         ppg_vals = [p["ppg"] for p in top_players]
-        rpg_vals = [p["rpg"] for p in top_players]
-        apg_vals = [p["apg"] for p in top_players]
-        eff_vals = [p["efficiency"] for p in top_players]
 
         candidates = []
         for player in top_players:
@@ -78,27 +88,21 @@ class MvpPredictor:
             team_seed = team_info.get("rank", 15)
 
             # --- Component scores ---
-
-            # Scoring: pure PPG normalized
             scoring = self._normalize(player["ppg"], min(ppg_vals), max(ppg_vals))
 
-            # All-around: combined stat-stuffing (PTS + REB + AST per game)
             all_around_val = player["ppg"] + player["rpg"] + player["apg"]
             all_around_vals = [p["ppg"] + p["rpg"] + p["apg"] for p in top_players]
             all_around = self._normalize(all_around_val, min(all_around_vals), max(all_around_vals))
 
-            # Team success: gradual decay by seed (voters care but not as steeply
-            # as past models assumed — Jokić won MVP on a 6th seed in 2024).
             seed_score = max(0.1, 1.0 - (team_seed - 1) * 0.065)
             team_score = seed_score * min(1.0, team_win_pct / 0.55)
 
-            # Archetype match
+            adv_score = self._advanced_score(player, top_players)
+
             arch_sim = self._archetype_similarity(player, team_win_pct, team_seed, archetype)
 
-            # Availability: 65-game rule makes this critical
             gp_score = min(1, player["games"] / 72)
 
-            # Efficiency: FG% as a proxy for scoring efficiency
             fg_pct = player.get("fg_pct", 45)
             eff_score = self._normalize(fg_pct, 40, 65)
 
@@ -108,14 +112,12 @@ class MvpPredictor:
             if player["name"] in recent_mvps:
                 prev_mvp_bonus = 0.02
 
-            # Dominant all-around bonus: reward players near triple-double averages
             dominant_bonus = 0
             if player["rpg"] >= 10 and player["apg"] >= 8:
-                dominant_bonus = 0.06  # Triple-double territory
+                dominant_bonus = 0.06
             elif player["rpg"] >= 8 and player["apg"] >= 6:
                 dominant_bonus = 0.03
 
-            # Penalty for players unlikely to hit 65 games
             eligibility = player.get("eligibility", "projected")
             eligibility_mult = 1.0 if eligibility == "eligible" else 0.93
 
@@ -123,6 +125,7 @@ class MvpPredictor:
                 self.WEIGHTS["scoring"] * scoring
                 + self.WEIGHTS["all_around"] * all_around
                 + self.WEIGHTS["team_success"] * team_score
+                + self.WEIGHTS["advanced"] * adv_score
                 + self.WEIGHTS["archetype_match"] * arch_sim
                 + self.WEIGHTS["availability"] * gp_score
                 + self.WEIGHTS["efficiency"] * eff_score
@@ -142,6 +145,10 @@ class MvpPredictor:
                 "efficiency": player["efficiency"],
                 "games": player["games"],
                 "fg_pct": player.get("fg_pct", 0),
+                "ts_pct": player.get("ts_pct", 0),
+                "usg_pct": player.get("usg_pct", 0),
+                "net_rating": player.get("net_rating", 0),
+                "pie": player.get("pie", 0),
                 "team_win_pct": round(team_win_pct * 100, 1),
                 "team_seed": team_seed,
                 "archetype_similarity": round(arch_sim * 100, 1),
@@ -150,6 +157,7 @@ class MvpPredictor:
                     "scoring": round(scoring * 100, 1),
                     "all_around": round(all_around * 100, 1),
                     "team_success": round(team_score * 100, 1),
+                    "advanced": round(adv_score * 100, 1),
                     "archetype_match": round(arch_sim * 100, 1),
                     "availability": round(gp_score * 100, 1),
                     "efficiency": round(eff_score * 100, 1),

@@ -54,6 +54,49 @@ class PlayersScraper:
     def _is_past_season(self, season_end_year: int) -> bool:
         return season_end_year < CURRENT_SEASON
 
+    def _fetch_advanced_stats(self, season_end_year: int) -> dict:
+        """Fetch advanced stats (PER, TS%, USG%, NET_RATING, etc.) keyed by player_id."""
+        cache_key = f"player_advanced_{season_end_year}"
+
+        if self._is_past_season(season_end_year):
+            disk_data = self.disk.get(cache_key)
+            if disk_data:
+                return disk_data
+
+        cached = self.cache.get(cache_key)
+        if cached:
+            return cached
+
+        season_str = f"{season_end_year - 1}-{str(season_end_year)[-2:]}"
+        time.sleep(0.6)
+
+        adv = leaguedashplayerstats.LeagueDashPlayerStats(
+            season=season_str,
+            per_mode_detailed="PerGame",
+            measure_type_detailed_defense="Advanced",
+        )
+        df = adv.get_data_frames()[0]
+
+        result = {}
+        for _, row in df.iterrows():
+            pid = int(row.get("PLAYER_ID", 0))
+            result[pid] = {
+                "ts_pct": round(float(row.get("TS_PCT", 0)) * 100, 1),
+                "usg_pct": round(float(row.get("USG_PCT", 0)) * 100, 1),
+                "off_rating": round(float(row.get("OFF_RATING", 0)), 1),
+                "def_rating": round(float(row.get("DEF_RATING", 0)), 1),
+                "net_rating": round(float(row.get("NET_RATING", 0)), 1),
+                "ast_pct": round(float(row.get("AST_PCT", 0)) * 100, 1),
+                "reb_pct": round(float(row.get("REB_PCT", 0)) * 100, 1),
+                "pie": round(float(row.get("PIE", 0)) * 100, 1),
+                "pace": round(float(row.get("PACE", 0)), 1),
+            }
+
+        if self._is_past_season(season_end_year):
+            self.disk.set(cache_key, result)
+        self.cache.set(cache_key, result)
+        return result
+
     def get_season_totals(self, season_end_year: int = 2026) -> list[dict]:
         """Get all player season per-game stats from NBA API."""
         cache_key = f"player_totals_{season_end_year}"
@@ -76,6 +119,9 @@ class PlayersScraper:
         )
         df = stats.get_data_frames()[0]
 
+        # Fetch advanced stats in parallel
+        advanced = self._fetch_advanced_stats(season_end_year)
+
         players = []
         for _, row in df.iterrows():
             games = int(row.get("GP", 0))
@@ -91,12 +137,16 @@ class PlayersScraper:
             tov = float(row.get("TOV", 0))
             fg_pct = float(row.get("FG_PCT", 0)) * 100
             ft_pct = float(row.get("FT_PCT", 0)) * 100
+            fg3_pct = float(row.get("FG3_PCT", 0)) * 100
 
             team_id = int(row.get("TEAM_ID", 0))
             player_id = int(row.get("PLAYER_ID", 0))
             team_name = TEAM_ID_TO_NAME.get(team_id, str(row.get("TEAM_ABBREVIATION", "Unknown")))
 
             efficiency = round(ppg + rpg + apg + spg + bpg - tov, 1)
+
+            # Merge advanced stats
+            adv = advanced.get(player_id, {})
 
             players.append({
                 "name": row.get("PLAYER_NAME", "Unknown"),
@@ -115,8 +165,16 @@ class PlayersScraper:
                 "tov_pg": round(tov, 1),
                 "fg_pct": round(fg_pct, 1),
                 "ft_pct": round(ft_pct, 1),
+                "fg3_pct": round(fg3_pct, 1),
                 "mpg": round(mpg, 1),
                 "efficiency": efficiency,
+                # Advanced stats
+                "ts_pct": adv.get("ts_pct", 0),
+                "usg_pct": adv.get("usg_pct", 0),
+                "off_rating": adv.get("off_rating", 0),
+                "def_rating": adv.get("def_rating", 0),
+                "net_rating": adv.get("net_rating", 0),
+                "pie": adv.get("pie", 0),
             })
 
         if self._is_past_season(season_end_year):
@@ -137,11 +195,9 @@ class PlayersScraper:
             if p["mpg"] < 25 or p["ppg"] < 15:
                 continue
 
-            # Determine eligibility status
             if p["games"] >= 65:
                 status = "eligible"
             elif p["games"] >= 45:
-                # Project to 82 games based on current pace
                 status = "projected"
             else:
                 continue
