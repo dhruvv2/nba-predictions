@@ -17,13 +17,15 @@ const COLUMNS = [
   { key: 'ppg', label: 'PPG', tooltip: 'Points Per Game — average points scored each game' },
   { key: 'rpg', label: 'RPG', tooltip: 'Rebounds Per Game — average rebounds grabbed each game' },
   { key: 'apg', label: 'APG', tooltip: 'Assists Per Game — average assists dished each game' },
+  { key: 'spg', label: 'STL', tooltip: 'Steals Per Game — measures ball-hawking defensive ability' },
+  { key: 'bpg', label: 'BLK', tooltip: 'Blocks Per Game — measures rim protection and shot deterrence' },
   { key: 'ts_pct', label: 'TS%', tooltip: 'True Shooting % — measures scoring efficiency accounting for FGs, 3s, and FTs. League avg ~57%' },
   { key: 'pie', label: 'PIE', tooltip: 'Player Impact Estimate — measures overall statistical contribution. Top MVPs typically 18%+' },
   { key: 'net_rating', label: 'NET', tooltip: 'Net Rating — team point differential per 100 possessions with player on court. Positive = outscoring opponents' },
   { key: 'gp', label: 'GP', tooltip: 'Games Played — 65 games required for MVP eligibility (since 2023-24)' },
   { key: 'seed', label: 'Seed', tooltip: 'Team playoff seed — MVPs almost always come from top-6 seeds' },
   { key: 'status', label: 'Status', tooltip: '65-game eligibility status: ✅ Eligible, ⏳ Projected, ❌ Ineligible' },
-  { key: 'score', label: 'MVP Score', tooltip: 'Composite score combining scoring, all-around play, team success, advanced stats, historical archetype match, and availability' },
+  { key: 'score', label: 'MVP Score', tooltip: 'Composite score combining scoring, all-around play, team success, advanced stats, defense, historical archetype match, and availability' },
 ]
 
 export default function MvpRankings() {
@@ -105,6 +107,8 @@ export default function MvpRankings() {
                   <td className="col-stat">{player.ppg}</td>
                   <td className="col-stat">{player.rpg}</td>
                   <td className="col-stat">{player.apg}</td>
+                  <td className="col-stat">{player.spg}</td>
+                  <td className="col-stat">{player.bpg}</td>
                   <td className="col-stat col-adv">{player.ts_pct}%</td>
                   <td className="col-stat col-adv">{player.pie}</td>
                   <td className="col-stat col-adv" style={{ color: player.net_rating >= 0 ? 'var(--success)' : 'var(--accent)' }}>
@@ -137,11 +141,11 @@ export default function MvpRankings() {
         <h3>How MVP Score is Calculated</h3>
         <div className="legend-grid">
           <div className="legend-item">
-            <span className="legend-pct">20%</span>
+            <span className="legend-pct">18%</span>
             <strong>Scoring</strong> — Points per game vs. other candidates
           </div>
           <div className="legend-item">
-            <span className="legend-pct">18%</span>
+            <span className="legend-pct">17%</span>
             <strong>All-Around</strong> — Combined PTS+REB+AST (rewards triple-double types)
           </div>
           <div className="legend-item">
@@ -153,11 +157,15 @@ export default function MvpRankings() {
             <strong>Advanced Stats</strong> — TS%, PIE, and Net Rating composite
           </div>
           <div className="legend-item">
-            <span className="legend-pct">12%</span>
+            <span className="legend-pct">10%</span>
             <strong>Archetype Match</strong> — Similarity to historical MVP stat profiles
           </div>
           <div className="legend-item">
-            <span className="legend-pct">10%</span>
+            <span className="legend-pct">7%</span>
+            <strong>Defense</strong> — Steals, blocks, and defensive rating (two-way impact)
+          </div>
+          <div className="legend-item">
+            <span className="legend-pct">8%</span>
             <strong>Availability</strong> — Games played (65-game rule since 2023-24)
           </div>
           <div className="legend-item">

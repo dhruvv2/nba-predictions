@@ -15,12 +15,13 @@ class MvpPredictor:
     """
 
     WEIGHTS = {
-        "scoring": 0.20,          # Raw PPG — voters love scorers
-        "all_around": 0.18,       # Combined PTS+REB+AST impact
+        "scoring": 0.18,          # Raw PPG — voters love scorers
+        "all_around": 0.17,       # Combined PTS+REB+AST impact
         "team_success": 0.18,     # Seed + win% — must be on a great team
         "advanced": 0.15,         # TS%, PIE, NET_RATING — true efficiency
-        "archetype_match": 0.12,  # Similarity to past MVP stat profiles
-        "availability": 0.10,     # Games played — 65-game rule era
+        "archetype_match": 0.10,  # Similarity to past MVP stat profiles
+        "defense": 0.07,          # STL, BLK, DEF_RATING — two-way impact
+        "availability": 0.08,     # Games played — 65-game rule era
         "efficiency": 0.07,       # FG% — basic shooting efficiency
     }
 
@@ -64,6 +65,19 @@ class MvpPredictor:
 
         return 0.35 * ts + 0.40 * pie + 0.25 * net
 
+    def _defense_score(self, player: dict, all_players: list[dict]) -> float:
+        """Composite defensive score from STL, BLK, and DEF_RATING."""
+        stl_vals = [p.get("spg", 0) for p in all_players]
+        blk_vals = [p.get("bpg", 0) for p in all_players]
+        drtg_vals = [p.get("def_rating", 110) for p in all_players]
+
+        stl = self._normalize(player.get("spg", 0), min(stl_vals), max(stl_vals))
+        blk = self._normalize(player.get("bpg", 0), min(blk_vals), max(blk_vals))
+        # Lower DEF_RATING is better — invert
+        drtg = 1 - self._normalize(player.get("def_rating", 110), min(drtg_vals), max(drtg_vals))
+
+        return 0.30 * stl + 0.30 * blk + 0.40 * drtg
+
     def predict_mvp_rankings(self, season_end_year: int = 2026) -> list[dict]:
         """Predict MVP rankings for the current season."""
         from scraper.games import GamesScraper
@@ -99,6 +113,8 @@ class MvpPredictor:
 
             adv_score = self._advanced_score(player, top_players)
 
+            def_score = self._defense_score(player, top_players)
+
             arch_sim = self._archetype_similarity(player, team_win_pct, team_seed, archetype)
 
             gp_score = min(1, player["games"] / 72)
@@ -126,6 +142,7 @@ class MvpPredictor:
                 + self.WEIGHTS["all_around"] * all_around
                 + self.WEIGHTS["team_success"] * team_score
                 + self.WEIGHTS["advanced"] * adv_score
+                + self.WEIGHTS["defense"] * def_score
                 + self.WEIGHTS["archetype_match"] * arch_sim
                 + self.WEIGHTS["availability"] * gp_score
                 + self.WEIGHTS["efficiency"] * eff_score
@@ -142,12 +159,15 @@ class MvpPredictor:
                 "ppg": player["ppg"],
                 "rpg": player["rpg"],
                 "apg": player["apg"],
+                "spg": player.get("spg", 0),
+                "bpg": player.get("bpg", 0),
                 "efficiency": player["efficiency"],
                 "games": player["games"],
                 "fg_pct": player.get("fg_pct", 0),
                 "ts_pct": player.get("ts_pct", 0),
                 "usg_pct": player.get("usg_pct", 0),
                 "net_rating": player.get("net_rating", 0),
+                "def_rating": player.get("def_rating", 0),
                 "pie": player.get("pie", 0),
                 "team_win_pct": round(team_win_pct * 100, 1),
                 "team_seed": team_seed,
@@ -158,6 +178,7 @@ class MvpPredictor:
                     "all_around": round(all_around * 100, 1),
                     "team_success": round(team_score * 100, 1),
                     "advanced": round(adv_score * 100, 1),
+                    "defense": round(def_score * 100, 1),
                     "archetype_match": round(arch_sim * 100, 1),
                     "availability": round(gp_score * 100, 1),
                     "efficiency": round(eff_score * 100, 1),
