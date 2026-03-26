@@ -5,7 +5,7 @@ from datetime import datetime
 from nba_api.stats.endpoints import leaguestandings, scoreboardv2, leaguegamefinder
 from scraper.cache import Cache, DiskCache
 
-CURRENT_SEASON = 2025  # Update this each new season
+CURRENT_SEASON = 2026  # 2025-26 season
 
 TEAM_ID_TO_NAME = {
     1610612737: "Atlanta Hawks", 1610612738: "Boston Celtics",
@@ -34,7 +34,7 @@ class GamesScraper:
     def _is_past_season(self, season_end_year: int) -> bool:
         return season_end_year < CURRENT_SEASON
 
-    def get_team_records(self, season_end_year: int = 2025) -> dict[str, dict]:
+    def get_team_records(self, season_end_year: int = 2026) -> dict[str, dict]:
         """Get team records from the NBA standings API."""
         cache_key = f"team_records_{season_end_year}"
 
@@ -97,7 +97,7 @@ class GamesScraper:
         self.cache.set(cache_key, records)
         return records
 
-    def get_season_games(self, season_end_year: int = 2025) -> list[dict]:
+    def get_season_games(self, season_end_year: int = 2026) -> list[dict]:
         """Get all games played this season."""
         cache_key = f"season_games_{season_end_year}"
 
@@ -148,7 +148,7 @@ class GamesScraper:
         self.cache.set(cache_key, games)
         return games
 
-    def get_upcoming_games(self, season_end_year: int = 2025) -> list[dict]:
+    def get_upcoming_games(self, season_end_year: int = 2026) -> list[dict]:
         """Get upcoming games from today's scoreboard."""
         cache_key = "upcoming_games"
         cached = self.cache.get(cache_key)
@@ -181,7 +181,7 @@ class GamesScraper:
         except Exception:
             return []
 
-    def get_head_to_head(self, team1: str, team2: str, season_end_year: int = 2025) -> dict:
+    def get_head_to_head(self, team1: str, team2: str, season_end_year: int = 2026) -> dict:
         """Get head-to-head record between two teams this season."""
         games = self.get_season_games(season_end_year)
         t1_wins, t2_wins = 0, 0
@@ -201,7 +201,7 @@ class GamesScraper:
 
         return {"team1": team1, "team2": team2, "team1_wins": t1_wins, "team2_wins": t2_wins}
 
-    def get_standings(self, season_end_year: int = 2025) -> list[dict]:
+    def get_standings(self, season_end_year: int = 2026) -> list[dict]:
         """Get sorted standings."""
         records = self.get_team_records(season_end_year)
         standings = sorted(records.values(), key=lambda x: x["win_pct"], reverse=True)

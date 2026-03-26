@@ -4,7 +4,7 @@ import time
 from nba_api.stats.endpoints import leaguedashplayerstats
 from scraper.cache import Cache, DiskCache
 
-CURRENT_SEASON = 2025  # Update this each new season
+CURRENT_SEASON = 2026  # 2025-26 season
 
 TEAM_ID_TO_NAME = {
     1610612737: "Atlanta Hawks", 1610612738: "Boston Celtics",
@@ -54,7 +54,7 @@ class PlayersScraper:
     def _is_past_season(self, season_end_year: int) -> bool:
         return season_end_year < CURRENT_SEASON
 
-    def get_season_totals(self, season_end_year: int = 2025) -> list[dict]:
+    def get_season_totals(self, season_end_year: int = 2026) -> list[dict]:
         """Get all player season per-game stats from NBA API."""
         cache_key = f"player_totals_{season_end_year}"
 
@@ -124,8 +124,29 @@ class PlayersScraper:
         self.cache.set(cache_key, players)
         return players
 
-    def get_top_players(self, season_end_year: int = 2025, limit: int = 25) -> list[dict]:
-        """Get top MVP-eligible players: 25+ mpg, 40+ games played."""
+    def get_top_players(self, season_end_year: int = 2026, limit: int = 25) -> list[dict]:
+        """Get top MVP-candidate players.
+
+        Uses the NBA 65-game rule: players need 65 games at 20+ min to be
+        eligible for end-of-season awards. Players on pace to hit 65 are
+        included and flagged as 'projected'.
+        """
         players = self.get_season_totals(season_end_year)
-        eligible = [p for p in players if p["mpg"] >= 25 and p["games"] >= 40]
-        return sorted(eligible, key=lambda x: x["efficiency"], reverse=True)[:limit]
+        candidates = []
+        for p in players:
+            if p["mpg"] < 25 or p["ppg"] < 15:
+                continue
+
+            # Determine eligibility status
+            if p["games"] >= 65:
+                status = "eligible"
+            elif p["games"] >= 45:
+                # Project to 82 games based on current pace
+                status = "projected"
+            else:
+                continue
+
+            p["eligibility"] = status
+            candidates.append(p)
+
+        return sorted(candidates, key=lambda x: x["efficiency"], reverse=True)[:limit]

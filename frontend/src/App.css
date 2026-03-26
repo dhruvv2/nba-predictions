@@ -490,6 +490,38 @@ h2 { font-size: 1.6rem; margin-bottom: 0.3rem; }
 
 .live-active .live-score { color: var(--gold); }
 
+/* ===== Eligibility Badges ===== */
+.eligibility-badge {
+  font-size: 1.1rem;
+  cursor: help;
+}
+
+.eligibility-legend {
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border);
+}
+
+.eligibility-legend h4 {
+  font-size: 0.85rem;
+  margin-bottom: 0.4rem;
+  color: var(--text);
+}
+
+.eligibility-legend p {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ===== Live Section in Games Page ===== */
+.live-section {
+  margin-bottom: 2.5rem;
+  padding-bottom: 2rem;
+  border-bottom: 2px solid var(--primary);
+}
+
+.upcoming-section h2 { margin-top: 0.5rem; }
+
 /* ===== Footer ===== */
 .footer {
   text-align: center;

@@ -10,19 +10,13 @@ export default function Navbar({ activeTab, setActiveTab }) {
           className={`nav-tab ${activeTab === 'games' ? 'active' : ''}`}
           onClick={() => setActiveTab('games')}
         >
-          Game Predictions
+          🔴 Games & Live Scores
         </button>
         <button
           className={`nav-tab ${activeTab === 'mvp' ? 'active' : ''}`}
           onClick={() => setActiveTab('mvp')}
         >
-          MVP Race
-        </button>
-        <button
-          className={`nav-tab ${activeTab === 'live' ? 'active' : ''}`}
-          onClick={() => setActiveTab('live')}
-        >
-          🔴 Live Scores
+          🏆 MVP Race
         </button>
       </div>
     </nav>
