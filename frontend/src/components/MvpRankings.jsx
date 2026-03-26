@@ -31,6 +31,7 @@ const COLUMNS = [
   { key: 'gp', label: 'GP', tooltip: 'Games Played — 65 games required for MVP eligibility (since 2023-24)' },
   { key: 'seed', label: 'Seed', tooltip: 'Team playoff seed — top-3 seed won MVP 19 of 20 times (2005-2024)' },
   { key: 'status', label: 'Status', tooltip: '65-game eligibility: ✅ Eligible, ⏳ Projected, ❌ Ineligible' },
+  { key: 'narrative', label: '📖', tooltip: 'Narrative Score — Voter fatigue, fresh face bonus, triple-double milestone, scoring title, #1 seed, historic efficiency. Captures the storyline elements that pure stats miss' },
   { key: 'ml_prob', label: 'ML%', tooltip: 'Machine Learning MVP probability — Gradient Boosting model trained on 2005-2024 MVP races (100 candidates). Higher = more likely to win MVP based on historical patterns' },
   { key: 'score', label: 'MVP Score', tooltip: 'Composite: 60% heuristic model (hand-tuned weights) + 40% ML model (gradient boosting). Scale 0-100' },
 ]
@@ -135,6 +136,9 @@ export default function MvpRankings() {
                     <span className={`eligibility-badge ${badge.cls}`} title={badge.label}>
                       {badge.icon}
                     </span>
+                  </td>
+                  <td className="col-stat" style={{ color: player.factors.narrative >= 80 ? 'var(--success)' : player.factors.narrative >= 60 ? 'var(--gold)' : 'var(--text-muted)' }}>
+                    {player.factors.narrative}
                   </td>
                   <td className="col-stat col-ml" style={{ color: player.ml_probability >= 50 ? 'var(--success)' : player.ml_probability >= 20 ? 'var(--gold)' : 'var(--text-muted)' }}>
                     {player.ml_probability}%
