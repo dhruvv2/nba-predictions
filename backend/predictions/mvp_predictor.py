@@ -20,19 +20,20 @@ class MvpPredictor:
     success and scoring volume.
     """
 
-    # Weights sum to 1.0, calibrated to historical MVP voting
+    # Weights sum to ~1.0, calibrated to historical MVP voting
     WEIGHTS = {
-        "win_shares": 0.15,       # Strongest single MVP predictor historically
-        "team_success": 0.17,     # Top-3 seed won 19/20 times (2005-2024)
-        "scoring": 0.15,          # PPG - scoring leaders win ~40% of MVPs
-        "all_around": 0.12,       # PTS+REB+AST - triple-double era bonus
+        "win_shares": 0.13,       # Strongest single MVP predictor historically
+        "team_success": 0.15,     # Top-3 seed won 19/20 times (2005-2024)
+        "scoring": 0.13,          # PPG - scoring leaders win ~40% of MVPs
+        "narrative": 0.10,        # Voter fatigue, fresh face, milestones
+        "all_around": 0.10,       # PTS+REB+AST - triple-double era bonus
         "advanced": 0.10,         # TS%, PIE, NET_RATING - efficiency
         "clutch": 0.06,           # Clutch PPG + FG% + +/- in close games
         "est_bpm": 0.05,          # Estimated Box Plus/Minus
-        "archetype_match": 0.06,  # Similarity to past MVP stat profiles
-        "defense": 0.06,          # STL, BLK, DEF_RATING - two-way impact
-        "availability": 0.06,     # Games played - 65-game rule era
-        "efficiency": 0.04,       # FG% - basic shooting efficiency
+        "archetype_match": 0.05,  # Similarity to past MVP stat profiles
+        "defense": 0.05,          # STL, BLK, DEF_RATING - two-way impact
+        "availability": 0.05,     # Games played - 65-game rule era
+        "efficiency": 0.03,       # FG% - basic shooting efficiency
     }
 
     def __init__(self, players_scraper, mvp_history_scraper):
@@ -70,6 +71,82 @@ class MvpPredictor:
         blk = self._normalize(player.get("bpg", 0), min(blk_vals), max(blk_vals))
         drtg = 1 - self._normalize(player.get("def_rating", 110), min(drtg_vals), max(drtg_vals))
         return 0.30 * stl + 0.30 * blk + 0.40 * drtg
+
+    def _narrative_score(self, player, team_seed, team_win_pct, all_players, mvp_history):
+        """Score narrative factors that historically influence MVP voting.
+
+        Captures the 'storyline' elements that pure stats miss:
+        - Voter fatigue: voters tire of giving MVP to the same player
+        - Fresh face bonus: new contenders generate excitement
+        - Milestone seasons: triple-double averages, historic efficiency
+        - Scoring title: leading the league in PPG carries weight
+        - Best record: team with #1 seed gets extra narrative push
+        """
+        score = 0.5  # baseline
+
+        # --- Voter fatigue / fresh face ---
+        recent_winners = [m["player"] for m in mvp_history[:3]]
+        all_winners = [m["player"] for m in mvp_history]
+
+        if player["name"] not in all_winners:
+            # Never won MVP — fresh face bonus (Rose 2011, Curry 2015, Giannis 2019)
+            score += 0.15
+        elif player["name"] == recent_winners[0]:
+            # Won LAST year — strong voter fatigue penalty
+            # (Only Jokic, LeBron, Giannis, Nash, Curry overcame this)
+            score -= 0.18
+        elif player["name"] in recent_winners[1:3]:
+            # Won 2-3 years ago — mild fatigue
+            score -= 0.06
+
+        # Count consecutive MVPs — exponential fatigue
+        consecutive = 0
+        for m in mvp_history:
+            if m["player"] == player["name"]:
+                consecutive += 1
+            else:
+                break
+        if consecutive >= 3:
+            score -= 0.15  # Very rare to win 4+ (only Russell, Wilt, LeBron)
+        elif consecutive >= 2:
+            score -= 0.08  # Tough to three-peat
+
+        # --- Triple-double milestone ---
+        # Averaging a triple-double is historic (Westbrook 2017, Jokic 2021+)
+        if player["rpg"] >= 10 and player["apg"] >= 10:
+            score += 0.20  # True triple-double average
+        elif player["rpg"] >= 10 and player["apg"] >= 8:
+            score += 0.12  # Near triple-double (Jokic profile)
+        elif player["rpg"] >= 8 and player["apg"] >= 8:
+            score += 0.08  # Elite all-around
+
+        # --- Scoring title ---
+        max_ppg = max(p["ppg"] for p in all_players)
+        if player["ppg"] >= max_ppg - 0.5:
+            score += 0.10  # Scoring leader or within 0.5 PPG
+
+        # --- Best record narrative ---
+        if team_seed == 1:
+            score += 0.10  # Best player on #1 seed is a powerful narrative
+        elif team_seed == 2:
+            score += 0.04
+
+        # --- Historic efficiency ---
+        # 65%+ TS on 25+ PPG is historically rare and generates buzz
+        ts = player.get("ts_pct", 0)
+        if ts >= 65 and player["ppg"] >= 25:
+            score += 0.10
+        elif ts >= 63 and player["ppg"] >= 28:
+            score += 0.06
+
+        # --- High-volume dominance ---
+        # 30+ PPG is always a narrative (Harden 2018-19, Curry 2016)
+        if player["ppg"] >= 32:
+            score += 0.08
+        elif player["ppg"] >= 30:
+            score += 0.04
+
+        return max(0, min(1, score))
 
     def predict_mvp_rankings(self, season_end_year=2026):
         from scraper.games import GamesScraper
@@ -123,16 +200,7 @@ class MvpPredictor:
             bpm_vals = [p.get("est_bpm", 0) for p in top_players]
             bpm_score = self._normalize(player.get("est_bpm", 0), min(bpm_vals), max(bpm_vals))
 
-            prev_mvp_bonus = 0
-            recent_mvps = [m["player"] for m in mvp_history[:5]]
-            if player["name"] in recent_mvps:
-                prev_mvp_bonus = 0.02
-
-            dominant_bonus = 0
-            if player["rpg"] >= 10 and player["apg"] >= 8:
-                dominant_bonus = 0.06
-            elif player["rpg"] >= 8 and player["apg"] >= 6:
-                dominant_bonus = 0.03
+            narrative = self._narrative_score(player, team_seed, team_win_pct, top_players, mvp_history)
 
             eligibility = player.get("eligibility", "projected")
             eligibility_mult = 1.0 if eligibility == "eligible" else 0.93
@@ -143,14 +211,13 @@ class MvpPredictor:
                 + self.WEIGHTS["all_around"] * all_around
                 + self.WEIGHTS["team_success"] * team_score
                 + self.WEIGHTS["advanced"] * adv_score
+                + self.WEIGHTS["narrative"] * narrative
                 + self.WEIGHTS["clutch"] * clutch_score
                 + self.WEIGHTS["est_bpm"] * bpm_score
                 + self.WEIGHTS["defense"] * def_score
                 + self.WEIGHTS["archetype_match"] * arch_sim
                 + self.WEIGHTS["availability"] * gp_score
                 + self.WEIGHTS["efficiency"] * eff_score
-                + prev_mvp_bonus
-                + dominant_bonus
             ) * eligibility_mult
 
             raw_results.append({
@@ -161,15 +228,21 @@ class MvpPredictor:
                 "eligibility": eligibility,
                 "scores": {
                     "ws": ws_score, "scoring": scoring, "all_around": all_around,
-                    "team": team_score, "adv": adv_score, "clutch": clutch_score,
-                    "bpm": bpm_score, "def": def_score, "arch": arch_sim,
-                    "gp": gp_score, "eff": eff_score, "prev_mvp": prev_mvp_bonus > 0,
+                    "team": team_score, "adv": adv_score, "narrative": narrative,
+                    "clutch": clutch_score, "bpm": bpm_score, "def": def_score,
+                    "arch": arch_sim, "gp": gp_score, "eff": eff_score,
                 },
             })
 
         # Batch ML prediction using decision function for smoother ranking
+        last_mvp = mvp_history[0]["player"] if mvp_history else ""
         ml_inputs = [
-            {**r["player"], "team_win_pct": round(r["team_win_pct"] * 100, 1), "team_seed": r["team_seed"]}
+            {
+                **r["player"],
+                "team_win_pct": round(r["team_win_pct"] * 100, 1),
+                "team_seed": r["team_seed"],
+                "is_prev_mvp": r["player"]["name"] == last_mvp,
+            }
             for r in raw_results
         ]
         ml_results = self.ml_model.predict_mvp_scores(ml_inputs)
@@ -221,13 +294,13 @@ class MvpPredictor:
                     "all_around": round(s["all_around"] * 100, 1),
                     "team_success": round(s["team"] * 100, 1),
                     "advanced": round(s["adv"] * 100, 1),
+                    "narrative": round(s["narrative"] * 100, 1),
                     "clutch": round(s["clutch"] * 100, 1),
                     "est_bpm": round(s["bpm"] * 100, 1),
                     "defense": round(s["def"] * 100, 1),
                     "archetype_match": round(s["arch"] * 100, 1),
                     "availability": round(s["gp"] * 100, 1),
                     "efficiency": round(s["eff"] * 100, 1),
-                    "previous_mvp_bonus": s["prev_mvp"],
                 },
             })
 

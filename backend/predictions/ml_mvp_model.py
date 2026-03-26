@@ -169,14 +169,27 @@ FEATURE_NAMES = [
     "ws_per_seed",         # win shares adjusted by seed
     "all_around",          # ppg + rpg + apg combined
     "inverse_seed",        # 1/seed — makes top seeds scale better
+    # Narrative features
+    "is_triple_dbl",       # averaging triple-double (RPG≥10 & APG≥10)
+    "near_triple_dbl",     # near triple-double (RPG≥10 & APG≥8 or RPG≥8 & APG≥10)
+    "is_top_seed",         # team is #1 seed
+    "volume_efficiency",   # PPG × TS% / 100 — rewards high-volume efficient scorers
+    "prev_mvp",            # won MVP in prior year (voter fatigue signal)
 ]
 
+# Track which players won MVP each year for narrative features
+_MVP_WINNERS_BY_YEAR = {r[0]: r[1] for r in
+    [(y, name) for y, name, won, *_ in TRAINING_DATA if won == 1]
+} if TRAINING_DATA else {}
 
-def _extract_features(row):
+
+def _extract_features(row, prev_mvp_name=None):
     """Extract feature vector from a training row or player dict."""
     if isinstance(row, tuple):
         # Training data tuple
-        _, _, _, ppg, rpg, apg, spg, bpg, ts, wpct, seed, ws, bpm, vorp = row
+        year, name, _, ppg, rpg, apg, spg, bpg, ts, wpct, seed, ws, bpm, vorp = row
+        # Look up if this player won MVP the year before
+        was_prev_mvp = 1.0 if _MVP_WINNERS_BY_YEAR.get(year - 1) == name else 0.0
     else:
         # Player dict from live data
         ppg = row.get("ppg", 0)
@@ -190,6 +203,7 @@ def _extract_features(row):
         ws = row.get("est_ws", 0)
         bpm = row.get("est_bpm", 0)
         vorp = row.get("est_vorp", 0)
+        was_prev_mvp = 1.0 if row.get("is_prev_mvp", False) else 0.0
 
     return [
         ppg, rpg, apg, spg, bpg,
@@ -198,6 +212,12 @@ def _extract_features(row):
         ws / max(seed, 1),             # win shares per seed position
         ppg + rpg + apg,               # all-around
         1.0 / max(seed, 1),            # inverse seed (1st = 1.0, 8th = 0.125)
+        # Narrative features
+        1.0 if (rpg >= 10 and apg >= 10) else 0.0,        # triple-double avg
+        1.0 if (rpg >= 10 and apg >= 8) or (rpg >= 8 and apg >= 10) else 0.0,  # near
+        1.0 if seed == 1 else 0.0,                          # #1 seed
+        ppg * ts / 100,                                      # volume × efficiency
+        was_prev_mvp,                                        # voter fatigue signal
     ]
 
 

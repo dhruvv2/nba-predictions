@@ -97,7 +97,7 @@ export default function MvpRankings() {
                       />
                       <span className="player-name">
                         {player.name}
-                        {player.factors.previous_mvp_bonus && <span className="mvp-badge" title="Previous MVP winner">⭐</span>}
+                        {player.ml_probability > 0 && player.factors.narrative > 40 && <span className="mvp-badge" title="Strong narrative factor">📖</span>}
                       </span>
                     </div>
                   </td>
@@ -162,19 +162,23 @@ export default function MvpRankings() {
         <h4>Heuristic Model Weights (60% of final score)</h4>
         <div className="legend-grid">
           <div className="legend-item">
-            <span className="legend-pct">17%</span>
+            <span className="legend-pct">15%</span>
             <strong>Team Success</strong> — Playoff seed + win% (top-3 seed won 19/20 MVPs)
           </div>
           <div className="legend-item">
-            <span className="legend-pct">15%</span>
+            <span className="legend-pct">13%</span>
             <strong>Win Shares</strong> — Overall contribution to team wins (WS leader won 14/20 MVPs)
           </div>
           <div className="legend-item">
-            <span className="legend-pct">15%</span>
+            <span className="legend-pct">13%</span>
             <strong>Scoring</strong> — Points per game vs. other candidates
           </div>
           <div className="legend-item">
-            <span className="legend-pct">12%</span>
+            <span className="legend-pct">10%</span>
+            <strong>📖 Narrative</strong> — Voter fatigue, fresh face bonus, triple-double milestones, scoring title, #1 seed narrative, historic efficiency
+          </div>
+          <div className="legend-item">
+            <span className="legend-pct">10%</span>
             <strong>All-Around</strong> — Combined PTS+REB+AST (rewards triple-double types)
           </div>
           <div className="legend-item">
@@ -186,29 +190,29 @@ export default function MvpRankings() {
             <strong>Clutch</strong> — Performance in last 5 min of close games (&lt;5 pt margin)
           </div>
           <div className="legend-item">
-            <span className="legend-pct">6%</span>
-            <strong>Archetype Match</strong> — Similarity to historical MVP stat profiles
-          </div>
-          <div className="legend-item">
-            <span className="legend-pct">6%</span>
-            <strong>Defense</strong> — Steals, blocks, and defensive rating
-          </div>
-          <div className="legend-item">
-            <span className="legend-pct">6%</span>
-            <strong>Availability</strong> — Games played (65-game rule since 2023-24)
-          </div>
-          <div className="legend-item">
             <span className="legend-pct">5%</span>
             <strong>Est. BPM</strong> — Estimated Box Plus/Minus (contribution above average)
           </div>
           <div className="legend-item">
-            <span className="legend-pct">4%</span>
+            <span className="legend-pct">5%</span>
+            <strong>Archetype Match</strong> — Similarity to historical MVP stat profiles
+          </div>
+          <div className="legend-item">
+            <span className="legend-pct">5%</span>
+            <strong>Defense</strong> — Steals, blocks, and defensive rating
+          </div>
+          <div className="legend-item">
+            <span className="legend-pct">5%</span>
+            <strong>Availability</strong> — Games played (65-game rule since 2023-24)
+          </div>
+          <div className="legend-item">
+            <span className="legend-pct">3%</span>
             <strong>FG Efficiency</strong> — Field goal percentage
           </div>
         </div>
 
         <h4>ML Model Features (40% of final score)</h4>
-        <p className="ml-description">Gradient Boosting classifier using 15 features: PPG, RPG, APG, STL, BLK, TS%, Win%, Seed, Win Shares, BPM, VORP, plus interaction features (PPG×Win%, WS/Seed, All-Around, Inverse Seed). Trained on 100 historical candidates across 20 seasons.</p>
+        <p className="ml-description">Gradient Boosting classifier using 20 features: PPG, RPG, APG, STL, BLK, TS%, Win%, Seed, Win Shares, BPM, VORP, plus interaction features (PPG×Win%, WS/Seed, All-Around, Inverse Seed) and narrative features (triple-double avg, near triple-double, #1 seed, volume×efficiency, previous MVP). Trained on 100 historical candidates across 20 seasons.</p>
 
         <div className="eligibility-legend">
           <h4>Eligibility Status (65-Game Rule)</h4>
