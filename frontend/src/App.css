@@ -296,6 +296,7 @@ h2 { font-size: 1.6rem; margin-bottom: 0.3rem; }
 .mvp-table .col-team { width: 44px; text-align: center; }
 .mvp-table .col-stat { white-space: nowrap; text-align: center; padding-left: 0.3rem; padding-right: 0.3rem; }
 .mvp-table .col-adv { color: var(--gold); }
+.mvp-table .col-ws { color: var(--success); font-weight: 700; }
 .mvp-table .col-status { width: 46px; text-align: center; }
 .mvp-table .col-score { min-width: 120px; }
 
@@ -336,10 +337,6 @@ h2 { font-size: 1.6rem; margin-bottom: 0.3rem; }
 .player-name {
   font-weight: 600;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 140px;
-  display: inline-block;
 }
 .mvp-badge { margin-left: 0.3rem; font-size: 0.7rem; }
 

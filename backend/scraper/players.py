@@ -175,6 +175,12 @@ class PlayersScraper:
                 "def_rating": adv.get("def_rating", 0),
                 "net_rating": adv.get("net_rating", 0),
                 "pie": adv.get("pie", 0),
+                # Estimated Win Shares: PIE-based approximation
+                # WS ≈ PIE * GP * (MPG/48) * scaling factor
+                # Calibrated so a ~20 PIE, 75 GP, 35 MPG player ≈ 14 WS
+                "est_ws": round(
+                    (adv.get("pie", 0) / 100) * games * (mpg / 48) * 1.3, 1
+                ) if adv.get("pie", 0) > 0 else 0,
             })
 
         if self._is_past_season(season_end_year):
