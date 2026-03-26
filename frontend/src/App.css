@@ -391,7 +391,27 @@ h2 { font-size: 1.6rem; margin-bottom: 0.3rem; }
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 0.5rem;
+  margin-bottom: 1rem;
 }
+
+.model-blend {
+  font-size: 0.9rem;
+  color: var(--text);
+  margin-bottom: 1rem;
+  padding: 0.6rem 1rem;
+  background: rgba(253, 185, 39, 0.08);
+  border-left: 3px solid var(--gold);
+  border-radius: 4px;
+}
+
+.ml-description {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.mvp-table .col-ml { font-weight: 700; }
 
 .legend-item {
   font-size: 0.82rem;

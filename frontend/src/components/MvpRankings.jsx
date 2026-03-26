@@ -31,7 +31,8 @@ const COLUMNS = [
   { key: 'gp', label: 'GP', tooltip: 'Games Played — 65 games required for MVP eligibility (since 2023-24)' },
   { key: 'seed', label: 'Seed', tooltip: 'Team playoff seed — top-3 seed won MVP 19 of 20 times (2005-2024)' },
   { key: 'status', label: 'Status', tooltip: '65-game eligibility: ✅ Eligible, ⏳ Projected, ❌ Ineligible' },
-  { key: 'score', label: 'MVP Score', tooltip: 'Composite score: Team 17%, WS 15%, Scoring 15%, All-Around 12%, Advanced 10%, Archetype 6%, Clutch 6%, BPM 5%, Defense 6%, Avail 6%, FG% 4%' },
+  { key: 'ml_prob', label: 'ML%', tooltip: 'Machine Learning MVP probability — Gradient Boosting model trained on 2005-2024 MVP races (100 candidates). Higher = more likely to win MVP based on historical patterns' },
+  { key: 'score', label: 'MVP Score', tooltip: 'Composite: 60% heuristic model (hand-tuned weights) + 40% ML model (gradient boosting). Scale 0-100' },
 ]
 
 export default function MvpRankings() {
@@ -135,6 +136,9 @@ export default function MvpRankings() {
                       {badge.icon}
                     </span>
                   </td>
+                  <td className="col-stat col-ml" style={{ color: player.ml_probability >= 50 ? 'var(--success)' : player.ml_probability >= 20 ? 'var(--gold)' : 'var(--text-muted)' }}>
+                    {player.ml_probability}%
+                  </td>
                   <td className="col-score">
                     <div className="score-bar-container">
                       <div
@@ -153,6 +157,9 @@ export default function MvpRankings() {
 
       <div className="mvp-legend">
         <h3>How MVP Score is Calculated</h3>
+        <p className="model-blend">Final score = <strong>60% Heuristic Model</strong> (hand-tuned weights below) + <strong>40% ML Model</strong> (Gradient Boosting trained on 100 MVP candidates, 2005-2024)</p>
+
+        <h4>Heuristic Model Weights (60% of final score)</h4>
         <div className="legend-grid">
           <div className="legend-item">
             <span className="legend-pct">17%</span>
@@ -199,6 +206,10 @@ export default function MvpRankings() {
             <strong>FG Efficiency</strong> — Field goal percentage
           </div>
         </div>
+
+        <h4>ML Model Features (40% of final score)</h4>
+        <p className="ml-description">Gradient Boosting classifier using 15 features: PPG, RPG, APG, STL, BLK, TS%, Win%, Seed, Win Shares, BPM, VORP, plus interaction features (PPG×Win%, WS/Seed, All-Around, Inverse Seed). Trained on 100 historical candidates across 20 seasons.</p>
+
         <div className="eligibility-legend">
           <h4>Eligibility Status (65-Game Rule)</h4>
           <p>✅ Eligible — 65+ games played &nbsp;&nbsp; ⏳ Projected — On pace for 65 GP &nbsp;&nbsp; ❌ Ineligible — Won't reach 65 GP</p>

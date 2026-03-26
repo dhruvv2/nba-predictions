@@ -1,15 +1,15 @@
-"""NBA MVP prediction engine using historical archetype comparison and advanced stats.
+"""NBA MVP prediction engine using historical archetype comparison and advanced stats,
+blended with a gradient boosting ML model trained on 2005-2024 MVP races.
 
-Uses the NBA 65-game rule for eligibility and weights calibrated to
-historical MVP voting patterns. Win Shares (estimated from PIE) is
-included as the strongest single predictor of MVP voting historically.
+The final MVP score is a weighted blend:
+  60% heuristic model (hand-tuned weights calibrated to voting patterns)
+  40% ML model (gradient boosting trained on historical candidate data)
 
-Weight calibration based on analysis of 2005-2024 MVP voting:
-- Win Shares leader won MVP in 14 of 20 seasons
-- Top-3 seed won MVP in 19 of 20 seasons
-- Scoring leader won MVP in 8 of 20 seasons
-- Triple-double/all-around played key role in 6 of 20 seasons
+This dual approach leverages the interpretability of the heuristic model
+with the pattern-recognition power of the ML model.
 """
+
+from predictions.ml_mvp_model import MlMvpModel
 
 
 class MvpPredictor:
@@ -38,6 +38,7 @@ class MvpPredictor:
     def __init__(self, players_scraper, mvp_history_scraper):
         self.players_scraper = players_scraper
         self.mvp_history_scraper = mvp_history_scraper
+        self.ml_model = MlMvpModel()
 
     def _normalize(self, value, min_val, max_val):
         if max_val == min_val:
@@ -88,6 +89,8 @@ class MvpPredictor:
         ws_vals = [p.get("est_ws", 0) for p in top_players]
 
         candidates = []
+        # First pass: compute heuristic scores and raw ML probabilities
+        raw_results = []
         for player in top_players:
             team_info = team_records.get(player["team"], {})
             team_win_pct = team_info.get("win_pct", 0.5)
@@ -109,7 +112,6 @@ class MvpPredictor:
             gp_score = min(1, player["games"] / 72)
             eff_score = self._normalize(player.get("fg_pct", 45), 40, 65)
 
-            # Clutch: PPG + FG% + plus/minus in close games
             clutch_ppg_vals = [p.get("clutch_ppg", 0) for p in top_players]
             clutch_pm_vals = [p.get("clutch_plus_minus", 0) for p in top_players]
             clutch_score = (
@@ -118,7 +120,6 @@ class MvpPredictor:
                 + 0.30 * self._normalize(player.get("clutch_plus_minus", 0), min(clutch_pm_vals), max(clutch_pm_vals))
             )
 
-            # Estimated BPM
             bpm_vals = [p.get("est_bpm", 0) for p in top_players]
             bpm_score = self._normalize(player.get("est_bpm", 0), min(bpm_vals), max(bpm_vals))
 
@@ -136,7 +137,7 @@ class MvpPredictor:
             eligibility = player.get("eligibility", "projected")
             eligibility_mult = 1.0 if eligibility == "eligible" else 0.93
 
-            mvp_score = (
+            heuristic_score = (
                 self.WEIGHTS["win_shares"] * ws_score
                 + self.WEIGHTS["scoring"] * scoring
                 + self.WEIGHTS["all_around"] * all_around
@@ -151,6 +152,34 @@ class MvpPredictor:
                 + prev_mvp_bonus
                 + dominant_bonus
             ) * eligibility_mult
+
+            raw_results.append({
+                "player": player,
+                "heuristic_score": heuristic_score,
+                "team_win_pct": team_win_pct,
+                "team_seed": team_seed,
+                "eligibility": eligibility,
+                "scores": {
+                    "ws": ws_score, "scoring": scoring, "all_around": all_around,
+                    "team": team_score, "adv": adv_score, "clutch": clutch_score,
+                    "bpm": bpm_score, "def": def_score, "arch": arch_sim,
+                    "gp": gp_score, "eff": eff_score, "prev_mvp": prev_mvp_bonus > 0,
+                },
+            })
+
+        # Batch ML prediction using decision function for smoother ranking
+        ml_inputs = [
+            {**r["player"], "team_win_pct": round(r["team_win_pct"] * 100, 1), "team_seed": r["team_seed"]}
+            for r in raw_results
+        ]
+        ml_results = self.ml_model.predict_mvp_scores(ml_inputs)
+
+        for r, ml in zip(raw_results, ml_results):
+            player = r["player"]
+            s = r["scores"]
+
+            # Blend: 60% heuristic, 40% ML (decision function normalized to 0-1)
+            mvp_score = 0.60 * r["heuristic_score"] + 0.40 * ml["ml_score"]
 
             candidates.append({
                 "name": player["name"],
@@ -180,23 +209,25 @@ class MvpPredictor:
                 "clutch_ppg": player.get("clutch_ppg", 0),
                 "clutch_fg_pct": player.get("clutch_fg_pct", 0),
                 "clutch_plus_minus": player.get("clutch_plus_minus", 0),
-                "team_win_pct": round(team_win_pct * 100, 1),
-                "team_seed": team_seed,
-                "archetype_similarity": round(arch_sim * 100, 1),
-                "eligibility": eligibility,
+                "team_win_pct": round(r["team_win_pct"] * 100, 1),
+                "team_seed": r["team_seed"],
+                "archetype_similarity": round(s["arch"] * 100, 1),
+                "eligibility": r["eligibility"],
+                "ml_probability": round(ml["ml_probability"] * 100, 1),
+                "heuristic_score": round(r["heuristic_score"] * 100, 1),
                 "factors": {
-                    "win_shares": round(ws_score * 100, 1),
-                    "scoring": round(scoring * 100, 1),
-                    "all_around": round(all_around * 100, 1),
-                    "team_success": round(team_score * 100, 1),
-                    "advanced": round(adv_score * 100, 1),
-                    "clutch": round(clutch_score * 100, 1),
-                    "est_bpm": round(bpm_score * 100, 1),
-                    "defense": round(def_score * 100, 1),
-                    "archetype_match": round(arch_sim * 100, 1),
-                    "availability": round(gp_score * 100, 1),
-                    "efficiency": round(eff_score * 100, 1),
-                    "previous_mvp_bonus": prev_mvp_bonus > 0,
+                    "win_shares": round(s["ws"] * 100, 1),
+                    "scoring": round(s["scoring"] * 100, 1),
+                    "all_around": round(s["all_around"] * 100, 1),
+                    "team_success": round(s["team"] * 100, 1),
+                    "advanced": round(s["adv"] * 100, 1),
+                    "clutch": round(s["clutch"] * 100, 1),
+                    "est_bpm": round(s["bpm"] * 100, 1),
+                    "defense": round(s["def"] * 100, 1),
+                    "archetype_match": round(s["arch"] * 100, 1),
+                    "availability": round(s["gp"] * 100, 1),
+                    "efficiency": round(s["eff"] * 100, 1),
+                    "previous_mvp_bonus": s["prev_mvp"],
                 },
             })
 
