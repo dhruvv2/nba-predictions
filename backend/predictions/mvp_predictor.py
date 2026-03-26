@@ -176,6 +176,7 @@ class MvpPredictor:
                 "ft_rate": player.get("ft_rate", 0),
                 "est_per": player.get("est_per", 0),
                 "est_bpm": player.get("est_bpm", 0),
+                "est_vorp": player.get("est_vorp", 0),
                 "clutch_ppg": player.get("clutch_ppg", 0),
                 "clutch_fg_pct": player.get("clutch_fg_pct", 0),
                 "clutch_plus_minus": player.get("clutch_plus_minus", 0),

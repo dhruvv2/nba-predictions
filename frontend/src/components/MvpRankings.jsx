@@ -26,6 +26,7 @@ const COLUMNS = [
   { key: 'ast_tov', label: 'A/TO', tooltip: 'Assist-to-Turnover Ratio — ball-handling efficiency. Higher = fewer mistakes per assist' },
   { key: 'est_per', label: 'PER', tooltip: 'Estimated Player Efficiency Rating — per-minute production accounting for all box score stats. League avg = 15' },
   { key: 'est_bpm', label: 'BPM', tooltip: 'Estimated Box Plus/Minus — contribution above average per 100 possessions. MVP winners typically 8+' },
+  { key: 'est_vorp', label: 'VORP', tooltip: 'Estimated Value Over Replacement Player — BPM scaled by playing time. Measures total value added vs. a replacement-level player. MVP winners typically 8+' },
   { key: 'clutch_ppg', label: 'CLU', tooltip: 'Clutch PPG — points per game in last 5 min when game within 5 pts. Measures big-moment performance' },
   { key: 'gp', label: 'GP', tooltip: 'Games Played — 65 games required for MVP eligibility (since 2023-24)' },
   { key: 'seed', label: 'Seed', tooltip: 'Team playoff seed — top-3 seed won MVP 19 of 20 times (2005-2024)' },
@@ -125,6 +126,7 @@ export default function MvpRankings() {
                   <td className="col-stat col-adv" style={{ color: player.est_bpm >= 0 ? 'var(--success)' : 'var(--accent)' }}>
                     {player.est_bpm > 0 ? '+' : ''}{player.est_bpm}
                   </td>
+                  <td className="col-stat col-adv">{player.est_vorp}</td>
                   <td className="col-stat">{player.clutch_ppg || '—'}</td>
                   <td className="col-stat">{player.games}</td>
                   <td className="col-stat">{player.team_seed}</td>

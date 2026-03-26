@@ -209,6 +209,11 @@ class PlayersScraper:
                 - 0.2 * tov - 3.5, 1
             )
 
+            # Estimated VORP = (BPM - replacement_level) × (% of team min) × (team GP / 82)
+            # Replacement level = -2.0
+            pct_team_min = mpg / 48 if mpg > 0 else 0
+            est_vorp = round((est_bpm - (-2.0)) * pct_team_min * (games / 82), 1)
+
             # Merge advanced stats
             adv = advanced.get(player_id, {})
 
@@ -239,6 +244,7 @@ class PlayersScraper:
                 "ft_rate": ft_rate,
                 "est_per": est_per,
                 "est_bpm": est_bpm,
+                "est_vorp": est_vorp,
                 # Advanced stats
                 "ts_pct": adv.get("ts_pct", 0),
                 "usg_pct": adv.get("usg_pct", 0),
