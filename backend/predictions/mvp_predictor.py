@@ -25,12 +25,14 @@ class MvpPredictor:
         "win_shares": 0.15,       # Strongest single MVP predictor historically
         "team_success": 0.17,     # Top-3 seed won 19/20 times (2005-2024)
         "scoring": 0.15,          # PPG - scoring leaders win ~40% of MVPs
-        "all_around": 0.14,       # PTS+REB+AST - triple-double era bonus
-        "advanced": 0.12,         # TS%, PIE, NET_RATING - efficiency
-        "archetype_match": 0.08,  # Similarity to past MVP stat profiles
-        "defense": 0.07,          # STL, BLK, DEF_RATING - two-way impact
-        "availability": 0.07,     # Games played - 65-game rule era
-        "efficiency": 0.05,       # FG% - basic shooting efficiency
+        "all_around": 0.12,       # PTS+REB+AST - triple-double era bonus
+        "advanced": 0.10,         # TS%, PIE, NET_RATING - efficiency
+        "clutch": 0.06,           # Clutch PPG + FG% + +/- in close games
+        "est_bpm": 0.05,          # Estimated Box Plus/Minus
+        "archetype_match": 0.06,  # Similarity to past MVP stat profiles
+        "defense": 0.06,          # STL, BLK, DEF_RATING - two-way impact
+        "availability": 0.06,     # Games played - 65-game rule era
+        "efficiency": 0.04,       # FG% - basic shooting efficiency
     }
 
     def __init__(self, players_scraper, mvp_history_scraper):
@@ -107,6 +109,19 @@ class MvpPredictor:
             gp_score = min(1, player["games"] / 72)
             eff_score = self._normalize(player.get("fg_pct", 45), 40, 65)
 
+            # Clutch: PPG + FG% + plus/minus in close games
+            clutch_ppg_vals = [p.get("clutch_ppg", 0) for p in top_players]
+            clutch_pm_vals = [p.get("clutch_plus_minus", 0) for p in top_players]
+            clutch_score = (
+                0.50 * self._normalize(player.get("clutch_ppg", 0), min(clutch_ppg_vals), max(clutch_ppg_vals))
+                + 0.20 * self._normalize(player.get("clutch_fg_pct", 40), 30, 60)
+                + 0.30 * self._normalize(player.get("clutch_plus_minus", 0), min(clutch_pm_vals), max(clutch_pm_vals))
+            )
+
+            # Estimated BPM
+            bpm_vals = [p.get("est_bpm", 0) for p in top_players]
+            bpm_score = self._normalize(player.get("est_bpm", 0), min(bpm_vals), max(bpm_vals))
+
             prev_mvp_bonus = 0
             recent_mvps = [m["player"] for m in mvp_history[:5]]
             if player["name"] in recent_mvps:
@@ -127,6 +142,8 @@ class MvpPredictor:
                 + self.WEIGHTS["all_around"] * all_around
                 + self.WEIGHTS["team_success"] * team_score
                 + self.WEIGHTS["advanced"] * adv_score
+                + self.WEIGHTS["clutch"] * clutch_score
+                + self.WEIGHTS["est_bpm"] * bpm_score
                 + self.WEIGHTS["defense"] * def_score
                 + self.WEIGHTS["archetype_match"] * arch_sim
                 + self.WEIGHTS["availability"] * gp_score
@@ -155,6 +172,13 @@ class MvpPredictor:
                 "def_rating": player.get("def_rating", 0),
                 "pie": player.get("pie", 0),
                 "est_ws": player.get("est_ws", 0),
+                "ast_tov": player.get("ast_tov", 0),
+                "ft_rate": player.get("ft_rate", 0),
+                "est_per": player.get("est_per", 0),
+                "est_bpm": player.get("est_bpm", 0),
+                "clutch_ppg": player.get("clutch_ppg", 0),
+                "clutch_fg_pct": player.get("clutch_fg_pct", 0),
+                "clutch_plus_minus": player.get("clutch_plus_minus", 0),
                 "team_win_pct": round(team_win_pct * 100, 1),
                 "team_seed": team_seed,
                 "archetype_similarity": round(arch_sim * 100, 1),
@@ -165,6 +189,8 @@ class MvpPredictor:
                     "all_around": round(all_around * 100, 1),
                     "team_success": round(team_score * 100, 1),
                     "advanced": round(adv_score * 100, 1),
+                    "clutch": round(clutch_score * 100, 1),
+                    "est_bpm": round(bpm_score * 100, 1),
                     "defense": round(def_score * 100, 1),
                     "archetype_match": round(arch_sim * 100, 1),
                     "availability": round(gp_score * 100, 1),

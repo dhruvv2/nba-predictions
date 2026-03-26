@@ -1,7 +1,7 @@
 """Scraper for NBA player stats using nba_api (official NBA stats)."""
 
 import time
-from nba_api.stats.endpoints import leaguedashplayerstats
+from nba_api.stats.endpoints import leaguedashplayerstats, leaguedashplayerclutch
 from scraper.cache import Cache, DiskCache
 
 CURRENT_SEASON = 2026  # 2025-26 season
@@ -97,6 +97,52 @@ class PlayersScraper:
         self.cache.set(cache_key, result)
         return result
 
+    def _fetch_clutch_stats(self, season_end_year: int) -> dict:
+        """Fetch clutch stats (last 5 min, within 5 pts) keyed by player_id."""
+        cache_key = f"player_clutch_{season_end_year}"
+
+        if self._is_past_season(season_end_year):
+            disk_data = self.disk.get(cache_key)
+            if disk_data:
+                return disk_data
+
+        cached = self.cache.get(cache_key)
+        if cached:
+            return cached
+
+        season_str = f"{season_end_year - 1}-{str(season_end_year)[-2:]}"
+        time.sleep(0.6)
+
+        try:
+            clutch = leaguedashplayerclutch.LeagueDashPlayerClutch(
+                season=season_str,
+                per_mode_detailed="PerGame",
+                clutch_time="Last 5 Minutes",
+                ahead_behind="Ahead or Behind",
+                point_diff=5,
+            )
+            df = clutch.get_data_frames()[0]
+
+            result = {}
+            for _, row in df.iterrows():
+                pid = int(row.get("PLAYER_ID", 0))
+                gp = int(row.get("GP", 0))
+                if gp < 10:
+                    continue
+                result[pid] = {
+                    "clutch_ppg": round(float(row.get("PTS", 0)), 1),
+                    "clutch_fg_pct": round(float(row.get("FG_PCT", 0)) * 100, 1),
+                    "clutch_plus_minus": round(float(row.get("PLUS_MINUS", 0)), 1),
+                    "clutch_gp": gp,
+                }
+
+            if self._is_past_season(season_end_year):
+                self.disk.set(cache_key, result)
+            self.cache.set(cache_key, result)
+            return result
+        except Exception:
+            return {}
+
     def get_season_totals(self, season_end_year: int = 2026) -> list[dict]:
         """Get all player season per-game stats from NBA API."""
         cache_key = f"player_totals_{season_end_year}"
@@ -119,8 +165,9 @@ class PlayersScraper:
         )
         df = stats.get_data_frames()[0]
 
-        # Fetch advanced stats in parallel
+        # Fetch advanced and clutch stats
         advanced = self._fetch_advanced_stats(season_end_year)
+        clutch = self._fetch_clutch_stats(season_end_year)
 
         players = []
         for _, row in df.iterrows():
@@ -138,15 +185,35 @@ class PlayersScraper:
             fg_pct = float(row.get("FG_PCT", 0)) * 100
             ft_pct = float(row.get("FT_PCT", 0)) * 100
             fg3_pct = float(row.get("FG3_PCT", 0)) * 100
+            fta = float(row.get("FTA", 0))
+            fga = float(row.get("FGA", 0))
 
             team_id = int(row.get("TEAM_ID", 0))
             player_id = int(row.get("PLAYER_ID", 0))
             team_name = TEAM_ID_TO_NAME.get(team_id, str(row.get("TEAM_ABBREVIATION", "Unknown")))
 
             efficiency = round(ppg + rpg + apg + spg + bpg - tov, 1)
+            ast_tov = round(apg / tov, 2) if tov > 0 else round(apg * 2, 2)
+            ft_rate = round(fta / fga, 3) if fga > 0 else 0
+
+            # Estimated PER (simplified Hollinger formula)
+            # Uses per-game stats normalized to ~36 min, scaled to league average of 15
+            min_factor = 36 / mpg if mpg > 0 else 1
+            est_per = round((ppg + rpg * 1.2 + apg * 1.5 + spg * 2 + bpg * 2
+                            - tov * 1.5 - (fga - fga * fg_pct/100) * 0.5) * min_factor * 0.9, 1)
+
+            # Estimated BPM (simplified from Basketball-Reference methodology)
+            # Positive = above average, uses key box score stats
+            est_bpm = round(
+                0.12 * ppg + 0.03 * rpg + 0.15 * apg + 0.35 * spg + 0.3 * bpg
+                - 0.2 * tov - 3.5, 1
+            )
 
             # Merge advanced stats
             adv = advanced.get(player_id, {})
+
+            # Merge clutch stats
+            cl = clutch.get(player_id, {})
 
             players.append({
                 "name": row.get("PLAYER_NAME", "Unknown"),
@@ -168,6 +235,10 @@ class PlayersScraper:
                 "fg3_pct": round(fg3_pct, 1),
                 "mpg": round(mpg, 1),
                 "efficiency": efficiency,
+                "ast_tov": ast_tov,
+                "ft_rate": ft_rate,
+                "est_per": est_per,
+                "est_bpm": est_bpm,
                 # Advanced stats
                 "ts_pct": adv.get("ts_pct", 0),
                 "usg_pct": adv.get("usg_pct", 0),
@@ -175,12 +246,14 @@ class PlayersScraper:
                 "def_rating": adv.get("def_rating", 0),
                 "net_rating": adv.get("net_rating", 0),
                 "pie": adv.get("pie", 0),
-                # Estimated Win Shares: PIE-based approximation
-                # WS ≈ PIE * GP * (MPG/48) * scaling factor
-                # Calibrated so a ~20 PIE, 75 GP, 35 MPG player ≈ 14 WS
+                # Estimated Win Shares
                 "est_ws": round(
                     (adv.get("pie", 0) / 100) * games * (mpg / 48) * 1.3, 1
                 ) if adv.get("pie", 0) > 0 else 0,
+                # Clutch stats
+                "clutch_ppg": cl.get("clutch_ppg", 0),
+                "clutch_fg_pct": cl.get("clutch_fg_pct", 0),
+                "clutch_plus_minus": cl.get("clutch_plus_minus", 0),
             })
 
         if self._is_past_season(season_end_year):

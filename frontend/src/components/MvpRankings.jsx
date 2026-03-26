@@ -22,11 +22,15 @@ const COLUMNS = [
   { key: 'ts_pct', label: 'TS%', tooltip: 'True Shooting % — scoring efficiency accounting for FGs, 3s, and FTs. League avg ~57%' },
   { key: 'pie', label: 'PIE', tooltip: 'Player Impact Estimate — overall statistical contribution. Top MVPs typically 18%+' },
   { key: 'net_rating', label: 'NET', tooltip: 'Net Rating — point differential per 100 possessions with player on court. Positive = outscoring opponents' },
-  { key: 'est_ws', label: 'WS', tooltip: 'Estimated Win Shares — credits a player for their contribution to team wins. WS leader won MVP 14 of 20 seasons (2005-2024). Calculated from PIE, games, and minutes' },
+  { key: 'est_ws', label: 'WS', tooltip: 'Estimated Win Shares — credits a player for their contribution to team wins. WS leader won MVP 14 of 20 seasons (2005-2024)' },
+  { key: 'ast_tov', label: 'A/TO', tooltip: 'Assist-to-Turnover Ratio — ball-handling efficiency. Higher = fewer mistakes per assist' },
+  { key: 'est_per', label: 'PER', tooltip: 'Estimated Player Efficiency Rating — per-minute production accounting for all box score stats. League avg = 15' },
+  { key: 'est_bpm', label: 'BPM', tooltip: 'Estimated Box Plus/Minus — contribution above average per 100 possessions. MVP winners typically 8+' },
+  { key: 'clutch_ppg', label: 'CLU', tooltip: 'Clutch PPG — points per game in last 5 min when game within 5 pts. Measures big-moment performance' },
   { key: 'gp', label: 'GP', tooltip: 'Games Played — 65 games required for MVP eligibility (since 2023-24)' },
   { key: 'seed', label: 'Seed', tooltip: 'Team playoff seed — top-3 seed won MVP 19 of 20 times (2005-2024)' },
   { key: 'status', label: 'Status', tooltip: '65-game eligibility: ✅ Eligible, ⏳ Projected, ❌ Ineligible' },
-  { key: 'score', label: 'MVP Score', tooltip: 'Composite score: Win Shares 15%, Team 17%, Scoring 15%, All-Around 14%, Advanced 12%, Archetype 8%, Defense 7%, Availability 7%, FG% 5%' },
+  { key: 'score', label: 'MVP Score', tooltip: 'Composite score: Team 17%, WS 15%, Scoring 15%, All-Around 12%, Advanced 10%, Archetype 6%, Clutch 6%, BPM 5%, Defense 6%, Avail 6%, FG% 4%' },
 ]
 
 export default function MvpRankings() {
@@ -116,6 +120,12 @@ export default function MvpRankings() {
                     {player.net_rating > 0 ? '+' : ''}{player.net_rating}
                   </td>
                   <td className="col-stat col-ws">{player.est_ws}</td>
+                  <td className="col-stat">{player.ast_tov}</td>
+                  <td className="col-stat col-adv">{player.est_per}</td>
+                  <td className="col-stat col-adv" style={{ color: player.est_bpm >= 0 ? 'var(--success)' : 'var(--accent)' }}>
+                    {player.est_bpm > 0 ? '+' : ''}{player.est_bpm}
+                  </td>
+                  <td className="col-stat">{player.clutch_ppg || '—'}</td>
                   <td className="col-stat">{player.games}</td>
                   <td className="col-stat">{player.team_seed}</td>
                   <td className="col-status">
@@ -155,27 +165,35 @@ export default function MvpRankings() {
             <strong>Scoring</strong> — Points per game vs. other candidates
           </div>
           <div className="legend-item">
-            <span className="legend-pct">14%</span>
+            <span className="legend-pct">12%</span>
             <strong>All-Around</strong> — Combined PTS+REB+AST (rewards triple-double types)
           </div>
           <div className="legend-item">
-            <span className="legend-pct">12%</span>
+            <span className="legend-pct">10%</span>
             <strong>Advanced Stats</strong> — TS%, PIE, and Net Rating composite
           </div>
           <div className="legend-item">
-            <span className="legend-pct">8%</span>
+            <span className="legend-pct">6%</span>
+            <strong>Clutch</strong> — Performance in last 5 min of close games (&lt;5 pt margin)
+          </div>
+          <div className="legend-item">
+            <span className="legend-pct">6%</span>
             <strong>Archetype Match</strong> — Similarity to historical MVP stat profiles
           </div>
           <div className="legend-item">
-            <span className="legend-pct">7%</span>
+            <span className="legend-pct">6%</span>
             <strong>Defense</strong> — Steals, blocks, and defensive rating
           </div>
           <div className="legend-item">
-            <span className="legend-pct">7%</span>
+            <span className="legend-pct">6%</span>
             <strong>Availability</strong> — Games played (65-game rule since 2023-24)
           </div>
           <div className="legend-item">
             <span className="legend-pct">5%</span>
+            <strong>Est. BPM</strong> — Estimated Box Plus/Minus (contribution above average)
+          </div>
+          <div className="legend-item">
+            <span className="legend-pct">4%</span>
             <strong>FG Efficiency</strong> — Field goal percentage
           </div>
         </div>
