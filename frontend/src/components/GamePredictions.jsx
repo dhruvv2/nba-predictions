@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 
 const API_BASE = 'http://localhost:8000/api'
+const FALLBACK_LOGO = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="%231d428a"/><text x="20" y="26" text-anchor="middle" fill="white" font-size="16">🏀</text></svg>'
 
 export default function GamePredictions() {
   const [predictions, setPredictions] = useState([])
@@ -37,19 +38,43 @@ export default function GamePredictions() {
           const homeWins = game.predicted_winner === game.home_team
           return (
             <div key={i} className="game-card">
-              <div className="game-date">{new Date(game.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
-
               <div className="matchup">
                 <div className={`team ${!homeWins ? 'winner' : ''}`}>
-                  <span className="team-abbrev">{game.away_team}</span>
-                  <span className="team-record">{game.away_win_pct}% W</span>
+                  <img
+                    className="team-logo"
+                    src={game.away_logo}
+                    alt={game.away_team}
+                    onError={e => { e.target.onerror = null; e.target.src = FALLBACK_LOGO }}
+                  />
+                  <span className="team-name">{game.away_team}</span>
+                  <span className="team-record">{game.away_season_record}</span>
+                  <span className="team-prob">{game.away_win_prob}%</span>
                 </div>
 
                 <div className="vs">@</div>
 
                 <div className={`team ${homeWins ? 'winner' : ''}`}>
-                  <span className="team-abbrev">{game.home_team}</span>
-                  <span className="team-record">{game.home_win_pct}% W</span>
+                  <img
+                    className="team-logo"
+                    src={game.home_logo}
+                    alt={game.home_team}
+                    onError={e => { e.target.onerror = null; e.target.src = FALLBACK_LOGO }}
+                  />
+                  <span className="team-name">{game.home_team}</span>
+                  <span className="team-record">{game.home_season_record}</span>
+                  <span className="team-prob">{game.home_win_prob}%</span>
+                </div>
+              </div>
+
+              {/* Win probability split bar */}
+              <div className="prob-bar-wrapper">
+                <div className="prob-bar-container">
+                  <div className="prob-bar away" style={{ width: `${game.away_win_prob}%` }} />
+                  <div className="prob-bar home" style={{ width: `${game.home_win_prob}%` }} />
+                </div>
+                <div className="prob-labels">
+                  <span>{game.away_win_prob}%</span>
+                  <span>{game.home_win_prob}%</span>
                 </div>
               </div>
 
@@ -72,6 +97,7 @@ export default function GamePredictions() {
                   <li>Home strength: {game.factors.home_strength}</li>
                   <li>Away strength: {game.factors.away_strength}</li>
                   <li>Home win prob: {game.factors.home_win_probability}%</li>
+                  <li>Home court: {game.factors.home_court_advantage}</li>
                   <li>H2H: {game.factors.head_to_head}</li>
                   <li>Home L10: {game.factors.home_recent_form}</li>
                   <li>Away L10: {game.factors.away_recent_form}</li>

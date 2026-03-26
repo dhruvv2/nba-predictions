@@ -2,14 +2,15 @@
 
 
 class MvpPredictor:
-    # Weights for MVP score components
+    # Weights for MVP score — scoring and team success matter most historically
     WEIGHTS = {
-        "scoring": 0.25,
-        "rebounds": 0.10,
-        "assists": 0.15,
-        "efficiency": 0.15,
-        "team_success": 0.20,
+        "scoring": 0.30,
+        "team_success": 0.25,
         "archetype_match": 0.15,
+        "assists": 0.10,
+        "efficiency": 0.10,
+        "rebounds": 0.05,
+        "games_played": 0.05,
     }
 
     def __init__(self, players_scraper, mvp_history_scraper):
@@ -90,6 +91,9 @@ class MvpPredictor:
             if player["name"] in recent_mvps:
                 prev_mvp_bonus = 0.03
 
+            # Games played factor — reward availability (82 game season)
+            gp_score = min(1, player["games"] / 75)
+
             mvp_score = (
                 self.WEIGHTS["scoring"] * scoring_score
                 + self.WEIGHTS["rebounds"] * rebound_score
@@ -97,17 +101,21 @@ class MvpPredictor:
                 + self.WEIGHTS["efficiency"] * efficiency_score
                 + self.WEIGHTS["team_success"] * team_score
                 + self.WEIGHTS["archetype_match"] * arch_sim
+                + self.WEIGHTS["games_played"] * gp_score
                 + prev_mvp_bonus
             )
 
             candidates.append({
                 "name": player["name"],
                 "team": player["team"],
+                "headshot_url": player.get("headshot_url", ""),
+                "team_logo_url": player.get("team_logo_url", ""),
                 "mvp_score": round(mvp_score * 100, 1),
                 "ppg": player["ppg"],
                 "rpg": player["rpg"],
                 "apg": player["apg"],
                 "efficiency": player["efficiency"],
+                "games": player["games"],
                 "team_win_pct": round(team_win_pct * 100, 1),
                 "team_seed": team_seed,
                 "archetype_similarity": round(arch_sim * 100, 1),
@@ -118,6 +126,7 @@ class MvpPredictor:
                     "efficiency": round(efficiency_score * 100, 1),
                     "team_success": round(team_score * 100, 1),
                     "archetype_match": round(arch_sim * 100, 1),
+                    "games_played": round(gp_score * 100, 1),
                     "previous_mvp_bonus": prev_mvp_bonus > 0,
                 },
             })

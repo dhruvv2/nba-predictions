@@ -18,6 +18,12 @@ export default function Navbar({ activeTab, setActiveTab }) {
         >
           MVP Race
         </button>
+        <button
+          className={`nav-tab ${activeTab === 'live' ? 'active' : ''}`}
+          onClick={() => setActiveTab('live')}
+        >
+          🔴 Live Scores
+        </button>
       </div>
     </nav>
   )
