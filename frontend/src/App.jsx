@@ -5,11 +5,21 @@ import MvpRankings from './components/MvpRankings'
 import './App.css'
 
 function App() {
-  const [activeTab, setActiveTab] = useState('games')
+  const getInitialTab = () => {
+    const hash = window.location.hash.replace('#', '')
+    return ['games', 'mvp'].includes(hash) ? hash : 'games'
+  }
+
+  const [activeTab, setActiveTab] = useState(getInitialTab)
+
+  const handleTabChange = (tab) => {
+    window.location.hash = tab
+    setActiveTab(tab)
+  }
 
   return (
     <div className="app">
-      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Navbar activeTab={activeTab} setActiveTab={handleTabChange} />
       <main className="main-content">
         {activeTab === 'games' && <GamePredictions />}
         {activeTab === 'mvp' && <MvpRankings />}
