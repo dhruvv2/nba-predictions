@@ -76,7 +76,7 @@ body {
 .main-content {
   flex: 1;
   padding: 2rem;
-  max-width: 1200px;
+  max-width: 1600px;
   margin: 0 auto;
   width: 100%;
 }
@@ -255,24 +255,24 @@ h2 { font-size: 1.6rem; margin-bottom: 0.3rem; }
 .factors li { margin-bottom: 0.15rem; }
 
 /* ===== MVP Table ===== */
-.mvp-table-wrapper { overflow-x: auto; }
+.mvp-table-wrapper { overflow-x: hidden; }
 
 .mvp-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.82rem;
-  min-width: 900px;
+  font-size: 0.78rem;
+  table-layout: auto;
 }
 
 .mvp-table th {
   background: var(--surface);
-  padding: 0.7rem 0.4rem;
+  padding: 0.5rem 0.25rem;
   text-align: center;
   color: var(--text-muted);
   font-weight: 600;
   text-transform: uppercase;
-  font-size: 0.7rem;
-  letter-spacing: 0.05em;
+  font-size: 0.65rem;
+  letter-spacing: 0.03em;
   border-bottom: 2px solid var(--primary);
   position: sticky;
   top: 0;
@@ -291,17 +291,17 @@ h2 { font-size: 1.6rem; margin-bottom: 0.3rem; }
 .mvp-table th:hover .th-hint { opacity: 1; color: var(--gold); }
 
 /* Column widths */
-.mvp-table .col-rank { width: 36px; text-align: center; }
-.mvp-table .col-player { min-width: 200px; text-align: left; }
-.mvp-table .col-team { width: 44px; text-align: center; }
-.mvp-table .col-stat { white-space: nowrap; text-align: center; padding-left: 0.3rem; padding-right: 0.3rem; }
+.mvp-table .col-rank { width: 30px; text-align: center; }
+.mvp-table .col-player { min-width: 160px; text-align: left; }
+.mvp-table .col-team { width: 36px; text-align: center; }
+.mvp-table .col-stat { white-space: nowrap; text-align: center; padding-left: 0.2rem; padding-right: 0.2rem; }
 .mvp-table .col-adv { color: var(--gold); }
 .mvp-table .col-ws { color: var(--success); font-weight: 700; }
-.mvp-table .col-status { width: 46px; text-align: center; }
-.mvp-table .col-score { min-width: 120px; }
+.mvp-table .col-status { width: 36px; text-align: center; }
+.mvp-table .col-score { min-width: 100px; }
 
 .mvp-table td {
-  padding: 0.5rem 0.4rem;
+  padding: 0.4rem 0.25rem;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
   text-align: center;
