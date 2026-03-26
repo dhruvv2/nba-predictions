@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from predictions.game_predictor import GamePredictor
 from predictions.mvp_predictor import MvpPredictor
+from predictions.mvp_chat import answer_mvp_question
 from scraper.games import GamesScraper
 from scraper.players import PlayersScraper
 from scraper.mvp_history import MvpHistoryScraper
@@ -41,6 +43,33 @@ def get_mvp_predictions():
     """Get current MVP race rankings."""
     rankings = mvp_predictor.predict_mvp_rankings()
     return {"rankings": rankings}
+
+
+class ChatRequest(BaseModel):
+    question: str
+
+
+# Cache rankings for chat so we don't re-fetch on every question
+_chat_rankings_cache = {"data": None}
+
+
+@app.post("/api/chat/mvp")
+def chat_mvp(req: ChatRequest):
+    """Answer questions about MVP rankings using live data."""
+    # Use cached rankings or fetch fresh
+    if not _chat_rankings_cache["data"]:
+        _chat_rankings_cache["data"] = mvp_predictor.predict_mvp_rankings()
+    rankings = _chat_rankings_cache["data"]
+    answer = answer_mvp_question(req.question, rankings)
+    return {"answer": answer}
+
+
+# Refresh chat cache when MVP rankings are fetched
+@app.get("/api/predictions/mvp/refresh-chat")
+def refresh_chat_cache():
+    """Refresh the chat rankings cache."""
+    _chat_rankings_cache["data"] = mvp_predictor.predict_mvp_rankings()
+    return {"status": "refreshed"}
 
 
 @app.get("/api/teams/standings")

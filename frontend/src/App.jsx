@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Navbar from './components/Navbar'
 import GamePredictions from './components/GamePredictions'
 import MvpRankings from './components/MvpRankings'
+import MvpChat from './components/MvpChat'
 import './App.css'
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
       <footer className="footer">
         <p>Data from NBA Stats API | Predictions are for entertainment purposes only</p>
       </footer>
+      <MvpChat />
     </div>
   )
 }
